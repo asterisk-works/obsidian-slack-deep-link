@@ -1,36 +1,37 @@
-import {App, PluginSettingTab, Setting} from "obsidian";
-import MyPlugin from "./main";
+import { App, PluginSettingTab, Setting } from 'obsidian';
+import SlackDeepLinkPlugin from './main';
 
-export interface MyPluginSettings {
-	mySetting: string;
+export interface SlackDeepLinkSettings {
+	teamId: string;
 }
 
-export const DEFAULT_SETTINGS: MyPluginSettings = {
-	mySetting: 'default'
-}
+export const DEFAULT_SETTINGS: SlackDeepLinkSettings = {
+	teamId: 'YOUR_TEAM_ID'
+};
 
-export class SampleSettingTab extends PluginSettingTab {
-	plugin: MyPlugin;
+export class SlackDeepLinkSettingTab extends PluginSettingTab {
+	plugin: SlackDeepLinkPlugin;
 
-	constructor(app: App, plugin: MyPlugin) {
+	constructor(app: App, plugin: SlackDeepLinkPlugin) {
 		super(app, plugin);
 		this.plugin = plugin;
 	}
 
 	display(): void {
-		const {containerEl} = this;
-
+		const { containerEl } = this;
 		containerEl.empty();
 
 		new Setting(containerEl)
-			.setName('Settings #1')
-			.setDesc('It\'s a secret')
+			.setName('Team ID')
+			.setDesc('Slack のチーム ID')
 			.addText(text => text
-				.setPlaceholder('Enter your secret')
-				.setValue(this.plugin.settings.mySetting)
+				.setPlaceholder('TXXXXXXXXX')
+				.setValue(this.plugin.settings.teamId)
 				.onChange(async (value) => {
-					this.plugin.settings.mySetting = value;
+					this.plugin.settings.teamId = value.trim();
 					await this.plugin.saveSettings();
-				}));
+				})
+			);
 	}
 }
+

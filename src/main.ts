@@ -1,99 +1,73 @@
-import {App, Editor, MarkdownView, Modal, Notice, Plugin} from 'obsidian';
-import {DEFAULT_SETTINGS, MyPluginSettings, SampleSettingTab} from "./settings";
+import { Plugin, Editor } from 'obsidian';
+import { SlackDeepLinkSettings, DEFAULT_SETTINGS, SlackDeepLinkSettingTab } from './settings';
 
-// Remember to rename these classes and interfaces!
+function convertSlackUrl(url: string, teamId: string): string | null {
+	const match = url.match(
+		/https:\/\/[^/]+\.slack\.com\/archives\/([A-Z0-9]+)\/p([0-9]{10})([0-9]{6})(?:\?.*thread_ts=([0-9.]+))?/
+	);
 
-export default class MyPlugin extends Plugin {
-	settings: MyPluginSettings;
+	if (!match) return null;
+
+	const channelId = match[1];
+	const tsInt = match[2];
+	const tsDec = match[3];
+	const threadTs = match[4];
+
+	const message = `${tsInt}.${tsDec}`;
+	let deepLink = `slack://channel?team=${teamId}&id=${channelId}&message=${message}`;
+
+	if (threadTs) {
+		deepLink += `&thread_ts=${threadTs}`;
+	}
+
+	return deepLink;
+}
+
+export default class SlackDeepLinkPlugin extends Plugin {
+	settings: SlackDeepLinkSettings;
+	private isShiftDown = false;
 
 	async onload() {
 		await this.loadSettings();
+		this.addSettingTab(new SlackDeepLinkSettingTab(this.app, this));
 
-		// This creates an icon in the left ribbon.
-		this.addRibbonIcon('dice', 'Sample', (evt: MouseEvent) => {
-			// Called when the user clicks the icon.
-			new Notice('This is a notice!');
-		});
+		document.addEventListener('keydown', this.onKeyDown);
+		document.addEventListener('keyup', this.onKeyUp);
 
-		// This adds a status bar item to the bottom of the app. Does not work on mobile apps.
-		const statusBarItemEl = this.addStatusBarItem();
-		statusBarItemEl.setText('Status bar text');
+		this.registerEvent(
+			this.app.workspace.on('editor-paste', (evt: ClipboardEvent, editor: Editor) => {
+				if (this.isShiftDown) return;
 
-		// This adds a simple command that can be triggered anywhere
-		this.addCommand({
-			id: 'open-modal-simple',
-			name: 'Open modal (simple)',
-			callback: () => {
-				new SampleModal(this.app).open();
-			}
-		});
-		// This adds an editor command that can perform some operation on the current editor instance
-		this.addCommand({
-			id: 'replace-selected',
-			name: 'Replace selected content',
-			editorCallback: (editor: Editor, view: MarkdownView) => {
-				editor.replaceSelection('Sample editor command');
-			}
-		});
-		// This adds a complex command that can check whether the current state of the app allows execution of the command
-		this.addCommand({
-			id: 'open-modal-complex',
-			name: 'Open modal (complex)',
-			checkCallback: (checking: boolean) => {
-				// Conditions to check
-				const markdownView = this.app.workspace.getActiveViewOfType(MarkdownView);
-				if (markdownView) {
-					// If checking is true, we're simply "checking" if the command can be run.
-					// If checking is false, then we want to actually perform the operation.
-					if (!checking) {
-						new SampleModal(this.app).open();
-					}
+				const text = evt.clipboardData?.getData('text/plain');
+				if (!text) return;
 
-					// This command will only show up in Command Palette when the check function returns true
-					return true;
-				}
-				return false;
-			}
-		});
+				const converted = convertSlackUrl(text.trim(), this.settings.teamId);
+				if (!converted) return;
 
-		// This adds a settings tab so the user can configure various aspects of the plugin
-		this.addSettingTab(new SampleSettingTab(this.app, this));
-
-		// If the plugin hooks up any global DOM events (on parts of the app that doesn't belong to this plugin)
-		// Using this function will automatically remove the event listener when this plugin is disabled.
-		this.registerDomEvent(document, 'click', (evt: MouseEvent) => {
-			new Notice("Click");
-		});
-
-		// When registering intervals, this function will automatically clear the interval when the plugin is disabled.
-		this.registerInterval(window.setInterval(() => console.log('setInterval'), 5 * 60 * 1000));
-
+				evt.preventDefault();
+				editor.replaceSelection(`[Slack App Link](${converted})`);
+			})
+		);
 	}
 
-	onunload() {
+	async onunload() {
+		document.removeEventListener('keydown', this.onKeyDown);
+		document.removeEventListener('keyup', this.onKeyUp);
+	}
+
+	private onKeyDown = (evt: KeyboardEvent) => {
+		if (evt.shiftKey) this.isShiftDown = true;
+	}
+
+	private onKeyUp = (evt: KeyboardEvent) => {
+		if (!evt.shiftKey) this.isShiftDown = false;
 	}
 
 	async loadSettings() {
-		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData() as Partial<MyPluginSettings>);
+		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
 	}
 
 	async saveSettings() {
 		await this.saveData(this.settings);
-	}
-}
-
-class SampleModal extends Modal {
-	constructor(app: App) {
-		super(app);
-	}
-
-	onOpen() {
-		let {contentEl} = this;
-		contentEl.setText('Woah!');
-	}
-
-	onClose() {
-		const {contentEl} = this;
-		contentEl.empty();
 	}
 }
