@@ -36,16 +36,26 @@ export default class SlackDeepLinkPlugin extends Plugin {
 
 		this.registerEvent(
 			this.app.workspace.on('editor-paste', (evt: ClipboardEvent, editor: Editor) => {
-				if (this.isShiftDown) return;
-
 				const text = evt.clipboardData?.getData('text/plain');
 				if (!text) return;
 
-				const converted = convertSlackUrl(text.trim(), this.settings.teamId);
+				const trimmed = text.trim();
+				const selectedText = editor.getSelection();
+
+				if (this.isShiftDown) {
+					if (!trimmed.match(/https:\/\/[^/]+\.slack\.com\/archives\//)) return;
+					const linkText = selectedText || 'Slack Link';
+					evt.preventDefault();
+					editor.replaceSelection(`[${linkText}](${trimmed})`);
+					return;
+				}
+
+				const converted = convertSlackUrl(trimmed, this.settings.teamId);
 				if (!converted) return;
 
 				evt.preventDefault();
-				editor.replaceSelection(`[Slack App Link](${converted})`);
+				const linkText = selectedText || 'Slack App Link';
+				editor.replaceSelection(`[${linkText}](${converted})`);
 			})
 		);
 	}
@@ -71,3 +81,4 @@ export default class SlackDeepLinkPlugin extends Plugin {
 		await this.saveData(this.settings);
 	}
 }
+
