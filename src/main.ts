@@ -1,4 +1,4 @@
-import { Plugin, Editor } from 'obsidian';
+import { Plugin, Editor, MarkdownView } from 'obsidian';
 import { SlackDeepLinkSettings, DEFAULT_SETTINGS, SlackDeepLinkSettingTab } from './settings';
 
 function convertSlackUrl(url: string, teamId: string): string | null {
@@ -33,36 +33,13 @@ export default class SlackDeepLinkPlugin extends Plugin {
 
 		document.addEventListener('keydown', this.onKeyDown);
 		document.addEventListener('keyup', this.onKeyUp);
-
-		this.registerEvent(
-			this.app.workspace.on('editor-paste', (evt: ClipboardEvent, editor: Editor) => {
-				const text = evt.clipboardData?.getData('text/plain');
-				if (!text) return;
-
-				const trimmed = text.trim();
-				const selectedText = editor.getSelection();
-
-				if (this.isShiftDown) {
-					if (!trimmed.match(/https:\/\/[^/]+\.slack\.com\/archives\//)) return;
-					const linkText = selectedText || 'Slack Link';
-					evt.preventDefault();
-					editor.replaceSelection(`[${linkText}](${trimmed})`);
-					return;
-				}
-
-				const converted = convertSlackUrl(trimmed, this.settings.teamId);
-				if (!converted) return;
-
-				evt.preventDefault();
-				const linkText = selectedText || 'Slack App Link';
-				editor.replaceSelection(`[${linkText}](${converted})`);
-			})
-		);
+		document.addEventListener('paste', this.onPaste, true); // captureフェーズ
 	}
 
 	async onunload() {
 		document.removeEventListener('keydown', this.onKeyDown);
 		document.removeEventListener('keyup', this.onKeyUp);
+		document.removeEventListener('paste', this.onPaste, true);
 	}
 
 	private onKeyDown = (evt: KeyboardEvent) => {
@@ -73,6 +50,37 @@ export default class SlackDeepLinkPlugin extends Plugin {
 		if (!evt.shiftKey) this.isShiftDown = false;
 	}
 
+	private onPaste = (evt: ClipboardEvent) => {
+		const text = evt.clipboardData?.getData('text/plain');
+		if (!text) return;
+
+		const trimmed = text.trim();
+
+		// Slackのリンクでなければ何もしない
+		if (!trimmed.match(/https:\/\/[^/]+\.slack\.com\/archives\//)) return;
+
+		const view = this.app.workspace.getActiveViewOfType(MarkdownView);
+		if (!view) return;
+
+		const editor = view.editor;
+		const selectedText = editor.getSelection();
+
+		evt.preventDefault();
+		evt.stopPropagation(); // Auto Link Titleへの伝播を止める
+
+		if (this.isShiftDown) {
+			const linkText = selectedText || 'Slack Link';
+			editor.replaceSelection(`[${linkText}](${trimmed})`);
+			return;
+		}
+
+		const converted = convertSlackUrl(trimmed, this.settings.teamId);
+		if (!converted) return;
+
+		const linkText = selectedText || 'Slack App Link';
+		editor.replaceSelection(`[${linkText}](${converted})`);
+	}
+
 	async loadSettings() {
 		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
 	}
@@ -81,4 +89,3 @@ export default class SlackDeepLinkPlugin extends Plugin {
 		await this.saveData(this.settings);
 	}
 }
-
