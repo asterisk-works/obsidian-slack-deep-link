@@ -1,20 +1,24 @@
 import { Plugin, Editor, MarkdownView } from 'obsidian';
-import { SlackDeepLinkSettings, DEFAULT_SETTINGS, SlackDeepLinkSettingTab } from './settings';
+import { SlackDeepLinkSettings, DEFAULT_SETTINGS, SlackDeepLinkSettingTab, WorkspaceMapping } from './settings';
 
-function convertSlackUrl(url: string, teamId: string): string | null {
+function convertSlackUrl(url: string, workspaces: WorkspaceMapping[]): string | null {
 	const match = url.match(
-		/https:\/\/[^/]+\.slack\.com\/archives\/([A-Z0-9]+)\/p([0-9]{10})([0-9]{6})(?:\?.*thread_ts=([0-9.]+))?/
+		/https:\/\/([^/]+\.slack\.com)\/archives\/([A-Z0-9]+)\/p([0-9]{10})([0-9]{6})(?:\?.*thread_ts=([0-9.]+))?/
 	);
 
 	if (!match) return null;
 
-	const channelId = match[1];
-	const tsInt = match[2];
-	const tsDec = match[3];
-	const threadTs = match[4];
+	const domain = match[1];
+	const channelId = match[2];
+	const tsInt = match[3];
+	const tsDec = match[4];
+	const threadTs = match[5];
+
+	const workspace = workspaces.find(w => w.domain === domain);
+	if (!workspace) return null;
 
 	const message = `${tsInt}.${tsDec}`;
-	let deepLink = `slack://channel?team=${teamId}&id=${channelId}&message=${message}`;
+	let deepLink = `slack://channel?team=${workspace.teamId}&id=${channelId}&message=${message}`;
 
 	if (threadTs) {
 		deepLink += `&thread_ts=${threadTs}`;
@@ -33,7 +37,7 @@ export default class SlackDeepLinkPlugin extends Plugin {
 
 		document.addEventListener('keydown', this.onKeyDown);
 		document.addEventListener('keyup', this.onKeyUp);
-		document.addEventListener('paste', this.onPaste, true); // captureフェーズ
+		document.addEventListener('paste', this.onPaste, true);
 	}
 
 	async onunload() {
@@ -56,7 +60,6 @@ export default class SlackDeepLinkPlugin extends Plugin {
 
 		const trimmed = text.trim();
 
-		// Slackのリンクでなければ何もしない
 		if (!trimmed.match(/https:\/\/[^/]+\.slack\.com\/archives\//)) return;
 
 		const view = this.app.workspace.getActiveViewOfType(MarkdownView);
@@ -66,7 +69,7 @@ export default class SlackDeepLinkPlugin extends Plugin {
 		const selectedText = editor.getSelection();
 
 		evt.preventDefault();
-		evt.stopPropagation(); // Auto Link Titleへの伝播を止める
+		evt.stopPropagation();
 
 		if (this.isShiftDown) {
 			const linkText = selectedText || 'Slack Link';
@@ -74,8 +77,12 @@ export default class SlackDeepLinkPlugin extends Plugin {
 			return;
 		}
 
-		const converted = convertSlackUrl(trimmed, this.settings.teamId);
-		if (!converted) return;
+		const converted = convertSlackUrl(trimmed, this.settings.workspaces);
+		if (!converted) {
+			// マッピングが見つからない場合はそのままURLを貼り付け
+			editor.replaceSelection(trimmed);
+			return;
+		}
 
 		const linkText = selectedText || 'Slack App Link';
 		editor.replaceSelection(`[${linkText}](${converted})`);
@@ -89,3 +96,4 @@ export default class SlackDeepLinkPlugin extends Plugin {
 		await this.saveData(this.settings);
 	}
 }
+

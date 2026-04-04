@@ -1,12 +1,17 @@
 import { App, PluginSettingTab, Setting } from 'obsidian';
 import SlackDeepLinkPlugin from './main';
 
-export interface SlackDeepLinkSettings {
+export interface WorkspaceMapping {
+	domain: string;
 	teamId: string;
 }
 
+export interface SlackDeepLinkSettings {
+	workspaces: WorkspaceMapping[];
+}
+
 export const DEFAULT_SETTINGS: SlackDeepLinkSettings = {
-	teamId: 'YOUR_TEAM_ID'
+	workspaces: [],
 };
 
 export class SlackDeepLinkSettingTab extends PluginSettingTab {
@@ -21,17 +26,47 @@ export class SlackDeepLinkSettingTab extends PluginSettingTab {
 		const { containerEl } = this;
 		containerEl.empty();
 
+		containerEl.createEl('h3', { text: 'ワークスペース設定' });
+
+		this.plugin.settings.workspaces.forEach((workspace, index) => {
+			const setting = new Setting(containerEl)
+				.addText(text => text
+					.setPlaceholder('example.slack.com')
+					.setValue(workspace.domain)
+					.onChange(async (value) => {
+						this.plugin.settings.workspaces[index].domain = value.trim();
+						await this.plugin.saveSettings();
+					})
+				)
+				.addText(text => text
+					.setPlaceholder('TXXXXXXXXX')
+					.setValue(workspace.teamId)
+					.onChange(async (value) => {
+						this.plugin.settings.workspaces[index].teamId = value.trim();
+						await this.plugin.saveSettings();
+					})
+				)
+				.addButton(button => button
+					.setButtonText('削除')
+					.setWarning()
+					.onClick(async () => {
+						this.plugin.settings.workspaces.splice(index, 1);
+						await this.plugin.saveSettings();
+						this.display();
+					})
+				);
+			setting.settingEl.style.alignItems = 'center';
+		});
+
 		new Setting(containerEl)
-			.setName('Team ID')
-			.setDesc('Slack のチーム ID')
-			.addText(text => text
-				.setPlaceholder('TXXXXXXXXX')
-				.setValue(this.plugin.settings.teamId)
-				.onChange(async (value) => {
-					this.plugin.settings.teamId = value.trim();
+			.addButton(button => button
+				.setButtonText('ワークスペースを追加')
+				.setCta()
+				.onClick(async () => {
+					this.plugin.settings.workspaces.push({ domain: '', teamId: '' });
 					await this.plugin.saveSettings();
+					this.display();
 				})
 			);
 	}
 }
-
