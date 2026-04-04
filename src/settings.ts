@@ -11,7 +11,7 @@ export interface SlackDeepLinkSettings {
 }
 
 export const DEFAULT_SETTINGS: SlackDeepLinkSettings = {
-	workspaces: [],
+	workspaces: []
 };
 
 export class SlackDeepLinkSettingTab extends PluginSettingTab {
@@ -26,7 +26,7 @@ export class SlackDeepLinkSettingTab extends PluginSettingTab {
 		const { containerEl } = this;
 		containerEl.empty();
 
-		containerEl.createEl('h3', { text: 'ワークスペース設定' });
+		containerEl.createEl('h3', { text: 'Workspaces' });
 
 		this.plugin.settings.workspaces.forEach((workspace, index) => {
 			const setting = new Setting(containerEl)
@@ -47,7 +47,7 @@ export class SlackDeepLinkSettingTab extends PluginSettingTab {
 					})
 				)
 				.addButton(button => button
-					.setButtonText('削除')
+					.setButtonText('Remove')
 					.setWarning()
 					.onClick(async () => {
 						this.plugin.settings.workspaces.splice(index, 1);
@@ -60,7 +60,7 @@ export class SlackDeepLinkSettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.addButton(button => button
-				.setButtonText('ワークスペースを追加')
+				.setButtonText('Add Workspace')
 				.setCta()
 				.onClick(async () => {
 					this.plugin.settings.workspaces.push({ domain: '', teamId: '' });
@@ -70,3 +70,4 @@ export class SlackDeepLinkSettingTab extends PluginSettingTab {
 			);
 	}
 }
+
