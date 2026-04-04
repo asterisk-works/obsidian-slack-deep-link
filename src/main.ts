@@ -1,4 +1,4 @@
-import { Plugin, Editor, MarkdownView } from 'obsidian';
+import { Plugin, Editor, MarkdownView, Notice } from 'obsidian';
 import { SlackDeepLinkSettings, DEFAULT_SETTINGS, SlackDeepLinkSettingTab, WorkspaceMapping } from './settings';
 
 function convertSlackUrl(url: string, workspaces: WorkspaceMapping[]): string | null {
@@ -79,7 +79,17 @@ export default class SlackDeepLinkPlugin extends Plugin {
 
 		const converted = convertSlackUrl(trimmed, this.settings.workspaces);
 		if (!converted) {
-			// マッピングが見つからない場合はそのままURLを貼り付け
+			// マッピングが見つからない場合は通知を表示しそのままURLを貼り付け
+			const notice = new Notice('', 5000);
+			notice.messageEl.createEl('span', { text: 'SlackDeepLink: No workspace mapping found. ' });
+			notice.messageEl.createEl('a', {
+				text: 'Open Settings',
+				href: '#',
+			}).addEventListener('click', () => {
+				(this.app as any).setting.open();
+				(this.app as any).setting.openTabById('slack-deep-link');
+				notice.hide();
+			});
 			editor.replaceSelection(trimmed);
 			return;
 		}
