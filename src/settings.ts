@@ -28,34 +28,40 @@ export class SlackDeepLinkSettingTab extends PluginSettingTab {
 
 		containerEl.createEl('h3', { text: 'Workspaces' });
 
+		const table = containerEl.createDiv({ cls: 'slack-deep-link-table' });
+
+		const header = table.createDiv({ cls: 'slack-deep-link-row' });
+		header.createDiv({ cls: 'slack-deep-link-header', text: 'Domain' });
+		header.createDiv({ cls: 'slack-deep-link-header', text: 'Team ID' });
+		header.createDiv({ cls: 'slack-deep-link-header' });
+
 		this.plugin.settings.workspaces.forEach((workspace, index) => {
-			const setting = new Setting(containerEl)
-				.addText(text => text
-					.setPlaceholder('example.slack.com')
-					.setValue(workspace.domain)
-					.onChange(async (value) => {
-						this.plugin.settings.workspaces[index].domain = value.trim();
-						await this.plugin.saveSettings();
-					})
-				)
-				.addText(text => text
-					.setPlaceholder('TXXXXXXXXX')
-					.setValue(workspace.teamId)
-					.onChange(async (value) => {
-						this.plugin.settings.workspaces[index].teamId = value.trim();
-						await this.plugin.saveSettings();
-					})
-				)
-				.addButton(button => button
-					.setButtonText('Remove')
-					.setWarning()
-					.onClick(async () => {
-						this.plugin.settings.workspaces.splice(index, 1);
-						await this.plugin.saveSettings();
-						this.display();
-					})
-				);
-			setting.settingEl.style.alignItems = 'center';
+			const row = table.createDiv({ cls: 'slack-deep-link-row' });
+
+			const domainInput = row.createEl('input', { type: 'text' });
+			domainInput.placeholder = 'example.slack.com';
+			domainInput.value = workspace.domain;
+			domainInput.addEventListener('change', async () => {
+				const ws = this.plugin.settings.workspaces[index];
+				if (ws) ws.domain = domainInput.value.trim();
+				await this.plugin.saveSettings();
+			});
+
+			const teamIdInput = row.createEl('input', { type: 'text' });
+			teamIdInput.placeholder = 'TXXXXXXXXX';
+			teamIdInput.value = workspace.teamId;
+			teamIdInput.addEventListener('change', async () => {
+				const ws = this.plugin.settings.workspaces[index];
+				if (ws) ws.teamId = teamIdInput.value.trim();
+				await this.plugin.saveSettings();
+			});
+
+			const removeButton = row.createEl('button', { text: 'Remove', cls: 'mod-warning' });
+			removeButton.addEventListener('click', async () => {
+				this.plugin.settings.workspaces.splice(index, 1);
+				await this.plugin.saveSettings();
+				this.display();
+			});
 		});
 
 		new Setting(containerEl)
