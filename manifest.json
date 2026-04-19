@@ -1,11 +1,11 @@
 {
-	"id": "sample-plugin",
-	"name": "Sample Plugin",
+	"id": "slack-deep-link",
+	"name": "Slack Deep Link",
 	"version": "1.0.0",
 	"minAppVersion": "0.15.0",
-	"description": "Demonstrates some of the capabilities of the Obsidian API.",
-	"author": "Obsidian",
-	"authorUrl": "https://obsidian.md",
-	"fundingUrl": "https://obsidian.md/pricing",
+	"description": "convert slack link to slack app deep link when paste to editor",
+	"author": "HeRoMo",
+	"authorUrl": "https://github.com/HeRoMo",
+	"fundingUrl": "https://ko-fi.com/heromo",
 	"isDesktopOnly": false
 }
