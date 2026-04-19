@@ -29,29 +29,36 @@ function convertSlackUrl(url: string, workspaces: WorkspaceMapping[]): string | 
 
 export default class SlackDeepLinkPlugin extends Plugin {
 	settings: SlackDeepLinkSettings;
-	private isShiftDown = false;
 
 	async onload() {
 		await this.loadSettings();
 		this.addSettingTab(new SlackDeepLinkSettingTab(this.app, this));
 
-		document.addEventListener('keydown', this.onKeyDown);
-		document.addEventListener('keyup', this.onKeyUp);
 		document.addEventListener('paste', this.onPaste, true);
+
+		this.addCommand({
+			id: 'slack-shift-paste',
+			name: 'Paste Slack link as plain URL (Shift paste)',
+			editorCallback: async (editor: Editor) => {
+				const text = await navigator.clipboard.readText();
+				if (!text) return;
+
+				const trimmed = text.trim();
+				if (!trimmed.match(/https:\/\/[^/]+\.slack\.com\/archives\//)) {
+					editor.replaceSelection(trimmed);
+					return;
+				}
+
+				const selectedText = editor.getSelection();
+				const linkText = selectedText || 'slack';
+				editor.replaceSelection(`[${linkText}](${trimmed})`);
+			},
+			hotkeys: [{ modifiers: ['Mod', 'Shift'], key: 'v' }],
+		});
 	}
 
 	async onunload() {
-		document.removeEventListener('keydown', this.onKeyDown);
-		document.removeEventListener('keyup', this.onKeyUp);
 		document.removeEventListener('paste', this.onPaste, true);
-	}
-
-	private onKeyDown = (evt: KeyboardEvent) => {
-		if (evt.shiftKey) this.isShiftDown = true;
-	}
-
-	private onKeyUp = (evt: KeyboardEvent) => {
-		if (!evt.shiftKey) this.isShiftDown = false;
 	}
 
 	private onPaste = (evt: ClipboardEvent) => {
@@ -71,12 +78,6 @@ export default class SlackDeepLinkPlugin extends Plugin {
 		evt.preventDefault();
 		evt.stopPropagation();
 
-		if (this.isShiftDown) {
-			const linkText = selectedText || 'Slack Link';
-			editor.replaceSelection(`[${linkText}](${trimmed})`);
-			return;
-		}
-
 		const converted = convertSlackUrl(trimmed, this.settings.workspaces);
 		if (!converted) {
 			// マッピングが見つからない場合は通知を表示しそのままURLを貼り付け
@@ -94,7 +95,7 @@ export default class SlackDeepLinkPlugin extends Plugin {
 			return;
 		}
 
-		const linkText = selectedText || 'Slack App Link';
+		const linkText = selectedText || 'slack app';
 		editor.replaceSelection(`[${linkText}](${converted})`);
 	}
 
