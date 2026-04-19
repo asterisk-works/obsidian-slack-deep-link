@@ -1,7 +1,7 @@
 {
 	"id": "slack-deep-link",
 	"name": "Slack Deep Link",
-	"version": "1.0.0",
+	"version": "0.1.0",
 	"minAppVersion": "0.15.0",
 	"description": "convert slack link to slack app deep link when paste to editor",
 	"author": "HeRoMo",

@@ -1,6 +1,6 @@
 {
 	"name": "obsidian-slack-deep-link",
-	"version": "1.0.0",
+	"version": "0.1.0",
 	"description": "This is a plugin for Obsidian to convert slack link to slack app deep link",
 	"main": "main.js",
 	"type": "module",
