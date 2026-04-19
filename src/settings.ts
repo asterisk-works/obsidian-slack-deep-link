@@ -26,7 +26,7 @@ export class SlackDeepLinkSettingTab extends PluginSettingTab {
 		const { containerEl } = this;
 		containerEl.empty();
 
-		containerEl.createEl('h3', { text: 'Workspaces' });
+		new Setting(containerEl).setName('Workspaces').setHeading();
 
 		const table = containerEl.createDiv({ cls: 'slack-deep-link-table' });
 
@@ -39,34 +39,33 @@ export class SlackDeepLinkSettingTab extends PluginSettingTab {
 			const row = table.createDiv({ cls: 'slack-deep-link-row' });
 
 			const domainInput = row.createEl('input', { type: 'text' });
-			domainInput.placeholder = 'example.slack.com';
+			domainInput.placeholder = 'Workspace domain';
 			domainInput.value = workspace.domain;
-			domainInput.addEventListener('change', async () => {
+			domainInput.addEventListener('change', () => {
 				const ws = this.plugin.settings.workspaces[index];
 				if (ws) ws.domain = domainInput.value.trim();
-				await this.plugin.saveSettings();
+				void this.plugin.saveSettings();
 			});
 
 			const teamIdInput = row.createEl('input', { type: 'text' });
 			teamIdInput.placeholder = 'TXXXXXXXXX';
 			teamIdInput.value = workspace.teamId;
-			teamIdInput.addEventListener('change', async () => {
+			teamIdInput.addEventListener('change', () => {
 				const ws = this.plugin.settings.workspaces[index];
 				if (ws) ws.teamId = teamIdInput.value.trim();
-				await this.plugin.saveSettings();
+				void this.plugin.saveSettings();
 			});
 
 			const removeButton = row.createEl('button', { text: 'Remove', cls: 'mod-warning' });
-			removeButton.addEventListener('click', async () => {
+			removeButton.addEventListener('click', () => {
 				this.plugin.settings.workspaces.splice(index, 1);
-				await this.plugin.saveSettings();
-				this.display();
+				void this.plugin.saveSettings().then(() => { this.display(); });
 			});
 		});
 
 		new Setting(containerEl)
 			.addButton(button => button
-				.setButtonText('Add Workspace')
+				.setButtonText('Add workspace')
 				.setCta()
 				.onClick(async () => {
 					this.plugin.settings.workspaces.push({ domain: '', teamId: '' });

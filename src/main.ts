@@ -38,7 +38,7 @@ export default class SlackDeepLinkPlugin extends Plugin {
 
 		this.addCommand({
 			id: 'slack-shift-paste',
-			name: 'Paste Slack link as plain URL (Shift paste)',
+			name: 'Paste Slack link as plain URL (shift paste)',
 			editorCallback: async (editor: Editor) => {
 				const text = await navigator.clipboard.readText();
 				if (!text) return;
@@ -53,11 +53,10 @@ export default class SlackDeepLinkPlugin extends Plugin {
 				const linkText = selectedText || 'slack';
 				editor.replaceSelection(`[${linkText}](${trimmed})`);
 			},
-			hotkeys: [{ modifiers: ['Mod', 'Shift'], key: 'v' }],
 		});
 	}
 
-	async onunload() {
+	onunload() {
 		document.removeEventListener('paste', this.onPaste, true);
 	}
 
@@ -82,13 +81,14 @@ export default class SlackDeepLinkPlugin extends Plugin {
 		if (!converted) {
 			// マッピングが見つからない場合は通知を表示しそのままURLを貼り付け
 			const notice = new Notice('', 5000);
-			notice.messageEl.createEl('span', { text: 'SlackDeepLink: No workspace mapping found. ' });
+			notice.messageEl.createEl('span', { text: 'No workspace mapping found. ' });
 			notice.messageEl.createEl('a', {
-				text: 'Open Settings',
+				text: 'Open settings',
 				href: '#',
 			}).addEventListener('click', () => {
-				(this.app as any).setting.open();
-				(this.app as any).setting.openTabById('slack-deep-link');
+				const appWithSetting = this.app as unknown as { setting: { open: () => void; openTabById: (id: string) => void } };
+				appWithSetting.setting.open();
+				appWithSetting.setting.openTabById('slack-deep-link');
 				notice.hide();
 			});
 			editor.replaceSelection(trimmed);
@@ -100,7 +100,8 @@ export default class SlackDeepLinkPlugin extends Plugin {
 	}
 
 	async loadSettings() {
-		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+		const data = await this.loadData() as Partial<SlackDeepLinkSettings>;
+		this.settings = Object.assign({}, DEFAULT_SETTINGS, data);
 	}
 
 	async saveSettings() {
