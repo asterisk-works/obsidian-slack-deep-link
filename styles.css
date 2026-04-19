@@ -6,3 +6,30 @@ available in the app when your plugin is enabled.
 If your plugin does not need CSS, delete this file.
 
 */
+
+.slack-deep-link-table {
+	margin-bottom: 8px;
+}
+
+.slack-deep-link-row {
+	display: flex;
+	gap: 8px;
+	align-items: center;
+	padding: 4px 0;
+}
+
+.slack-deep-link-row input[type="text"] {
+	flex: 1;
+}
+
+.slack-deep-link-header {
+	flex: 1;
+	font-size: 0.85em;
+	color: var(--text-muted);
+	font-weight: 600;
+}
+
+.slack-deep-link-header:last-child {
+	flex: none;
+	min-width: 68px;
+}

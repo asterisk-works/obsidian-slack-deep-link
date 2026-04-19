@@ -1,80 +1,107 @@
-import {App, Editor, MarkdownView, Modal, Notice, Plugin} from 'obsidian';
-import {DEFAULT_SETTINGS, MyPluginSettings, SampleSettingTab} from "./settings";
+import { Plugin, Editor, MarkdownView, Notice } from 'obsidian';
+import { SlackDeepLinkSettings, DEFAULT_SETTINGS, SlackDeepLinkSettingTab, WorkspaceMapping } from './settings';
 
-// Remember to rename these classes and interfaces!
+function convertSlackUrl(url: string, workspaces: WorkspaceMapping[]): string | null {
+	const match = url.match(
+		/https:\/\/([^/]+\.slack\.com)\/archives\/([A-Z0-9]+)\/p([0-9]{10})([0-9]{6})(?:\?.*thread_ts=([0-9.]+))?/
+	);
 
-export default class MyPlugin extends Plugin {
-	settings: MyPluginSettings;
+	if (!match) return null;
+
+	const domain = match[1];
+	const channelId = match[2];
+	const tsInt = match[3];
+	const tsDec = match[4];
+	const threadTs = match[5];
+
+	const workspace = workspaces.find(w => w.domain === domain);
+	if (!workspace) return null;
+
+	const message = `${tsInt}.${tsDec}`;
+	let deepLink = `slack://channel?team=${workspace.teamId}&id=${channelId}&message=${message}`;
+
+	if (threadTs) {
+		deepLink += `&thread_ts=${threadTs}`;
+	}
+
+	return deepLink;
+}
+
+export default class SlackDeepLinkPlugin extends Plugin {
+	settings: SlackDeepLinkSettings;
 
 	async onload() {
 		await this.loadSettings();
+		this.addSettingTab(new SlackDeepLinkSettingTab(this.app, this));
 
-		// This creates an icon in the left ribbon.
-		this.addRibbonIcon('dice', 'Sample', (evt: MouseEvent) => {
-			// Called when the user clicks the icon.
-			new Notice('This is a notice!');
-		});
+		document.addEventListener('paste', this.onPaste, true);
 
-		// This adds a status bar item to the bottom of the app. Does not work on mobile apps.
-		const statusBarItemEl = this.addStatusBarItem();
-		statusBarItemEl.setText('Status bar text');
-
-		// This adds a simple command that can be triggered anywhere
 		this.addCommand({
-			id: 'open-modal-simple',
-			name: 'Open modal (simple)',
-			callback: () => {
-				new SampleModal(this.app).open();
-			}
-		});
-		// This adds an editor command that can perform some operation on the current editor instance
-		this.addCommand({
-			id: 'replace-selected',
-			name: 'Replace selected content',
-			editorCallback: (editor: Editor, view: MarkdownView) => {
-				editor.replaceSelection('Sample editor command');
-			}
-		});
-		// This adds a complex command that can check whether the current state of the app allows execution of the command
-		this.addCommand({
-			id: 'open-modal-complex',
-			name: 'Open modal (complex)',
-			checkCallback: (checking: boolean) => {
-				// Conditions to check
-				const markdownView = this.app.workspace.getActiveViewOfType(MarkdownView);
-				if (markdownView) {
-					// If checking is true, we're simply "checking" if the command can be run.
-					// If checking is false, then we want to actually perform the operation.
-					if (!checking) {
-						new SampleModal(this.app).open();
-					}
+			id: 'slack-shift-paste',
+			name: 'Paste Slack link as plain URL (shift paste)',
+			editorCallback: async (editor: Editor) => {
+				const text = await navigator.clipboard.readText();
+				if (!text) return;
 
-					// This command will only show up in Command Palette when the check function returns true
-					return true;
+				const trimmed = text.trim();
+				if (!trimmed.match(/https:\/\/[^/]+\.slack\.com\/archives\//)) {
+					editor.replaceSelection(trimmed);
+					return;
 				}
-				return false;
-			}
+
+				const selectedText = editor.getSelection();
+				const linkText = selectedText || 'slack';
+				editor.replaceSelection(`[${linkText}](${trimmed})`);
+			},
 		});
-
-		// This adds a settings tab so the user can configure various aspects of the plugin
-		this.addSettingTab(new SampleSettingTab(this.app, this));
-
-		// If the plugin hooks up any global DOM events (on parts of the app that doesn't belong to this plugin)
-		// Using this function will automatically remove the event listener when this plugin is disabled.
-		this.registerDomEvent(document, 'click', (evt: MouseEvent) => {
-			new Notice("Click");
-		});
-
-		// When registering intervals, this function will automatically clear the interval when the plugin is disabled.
-		this.registerInterval(window.setInterval(() => console.log('setInterval'), 5 * 60 * 1000));
-
 	}
 
 	onunload() {
+		document.removeEventListener('paste', this.onPaste, true);
+	}
+
+	private onPaste = (evt: ClipboardEvent) => {
+		const text = evt.clipboardData?.getData('text/plain');
+		if (!text) return;
+
+		const trimmed = text.trim();
+
+		if (!trimmed.match(/https:\/\/[^/]+\.slack\.com\/archives\//)) return;
+
+		const view = this.app.workspace.getActiveViewOfType(MarkdownView);
+		if (!view) return;
+
+		const editor = view.editor;
+		const selectedText = editor.getSelection();
+
+		evt.preventDefault();
+		evt.stopPropagation();
+
+		const converted = convertSlackUrl(trimmed, this.settings.workspaces);
+		if (!converted) {
+			// マッピングが見つからない場合は通知を表示しそのままURLを貼り付け
+			const notice = new Notice('', 5000);
+			notice.messageEl.createEl('span', { text: 'No workspace mapping found. ' });
+			notice.messageEl.createEl('a', {
+				text: 'Open settings',
+				href: '#',
+			}).addEventListener('click', () => {
+				const appWithSetting = this.app as unknown as { setting: { open: () => void; openTabById: (id: string) => void } };
+				appWithSetting.setting.open();
+				appWithSetting.setting.openTabById('slack-deep-link');
+				notice.hide();
+			});
+			editor.replaceSelection(trimmed);
+			return;
+		}
+
+		const linkText = selectedText || 'slack app';
+		editor.replaceSelection(`[${linkText}](${converted})`);
 	}
 
 	async loadSettings() {
-		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData() as Partial<MyPluginSettings>);
+		const data = await this.loadData() as Partial<SlackDeepLinkSettings>;
+		this.settings = Object.assign({}, DEFAULT_SETTINGS, data);
 	}
 
 	async saveSettings() {
@@ -82,18 +109,3 @@ export default class MyPlugin extends Plugin {
 	}
 }
 
-class SampleModal extends Modal {
-	constructor(app: App) {
-		super(app);
-	}
-
-	onOpen() {
-		let {contentEl} = this;
-		contentEl.setText('Woah!');
-	}
-
-	onClose() {
-		const {contentEl} = this;
-		contentEl.empty();
-	}
-}
