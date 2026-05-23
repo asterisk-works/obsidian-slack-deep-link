@@ -46,7 +46,10 @@ export default class SlackDeepLinkPlugin extends Plugin {
 				if (!text) return;
 
 				const trimmed = text.trim();
-				if (!trimmed.match(/https:\/\/[^/]+\.slack\.com\/archives\//)) {
+				const mdLink = parseMarkdownLink(trimmed);
+				const urlToInsert = mdLink ? mdLink.url : trimmed;
+
+				if (!urlToInsert.match(/https:\/\/[^/]+\.slack\.com\/archives\//)) {
 					editor.replaceSelection(trimmed);
 					return;
 				}
@@ -54,13 +57,18 @@ export default class SlackDeepLinkPlugin extends Plugin {
 				const cursor = editor.getCursor('from');
 				const beforeCursor = editor.getLine(cursor.line).substring(0, cursor.ch);
 				if (isInsideMarkdownLinkUrl(beforeCursor)) {
-					editor.replaceSelection(trimmed);
+					editor.replaceSelection(urlToInsert);
 					return;
 				}
 
 				const selectedText = editor.getSelection();
-				const linkText = selectedText || 'slack';
-				editor.replaceSelection(`[${linkText}](${trimmed})`);
+				if (mdLink) {
+					const linkText = selectedText || mdLink.linkText;
+					editor.replaceSelection(`${mdLink.prefix}[${linkText}](${urlToInsert})`);
+				} else {
+					const linkText = selectedText || 'slack';
+					editor.replaceSelection(`[${linkText}](${trimmed})`);
+				}
 			},
 		});
 	}
