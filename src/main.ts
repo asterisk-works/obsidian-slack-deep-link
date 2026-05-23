@@ -1,5 +1,6 @@
 import { Plugin, Editor, MarkdownView, Notice } from 'obsidian';
 import { SlackDeepLinkSettings, DEFAULT_SETTINGS, SlackDeepLinkSettingTab, WorkspaceMapping } from './settings';
+import { isInsideMarkdownLinkUrl } from './utils/editor-context';
 
 function convertSlackUrl(url: string, workspaces: WorkspaceMapping[]): string | null {
 	const match = url.match(
@@ -49,6 +50,13 @@ export default class SlackDeepLinkPlugin extends Plugin {
 					return;
 				}
 
+				const cursor = editor.getCursor('from');
+				const beforeCursor = editor.getLine(cursor.line).substring(0, cursor.ch);
+				if (isInsideMarkdownLinkUrl(beforeCursor)) {
+					editor.replaceSelection(trimmed);
+					return;
+				}
+
 				const selectedText = editor.getSelection();
 				const linkText = selectedText || 'slack';
 				editor.replaceSelection(`[${linkText}](${trimmed})`);
@@ -77,6 +85,10 @@ export default class SlackDeepLinkPlugin extends Plugin {
 		evt.preventDefault();
 		evt.stopPropagation();
 
+		const cursor = editor.getCursor('from');
+		const beforeCursor = editor.getLine(cursor.line).substring(0, cursor.ch);
+		const inLinkUrl = isInsideMarkdownLinkUrl(beforeCursor);
+
 		const converted = convertSlackUrl(trimmed, this.settings.workspaces);
 		if (!converted) {
 			// マッピングが見つからない場合は通知を表示しそのままURLを貼り付け
@@ -95,8 +107,12 @@ export default class SlackDeepLinkPlugin extends Plugin {
 			return;
 		}
 
-		const linkText = selectedText || 'slack app';
-		editor.replaceSelection(`[${linkText}](${converted})`);
+		if (inLinkUrl) {
+			editor.replaceSelection(converted);
+		} else {
+			const linkText = selectedText || 'slack app';
+			editor.replaceSelection(`[${linkText}](${converted})`);
+		}
 	}
 
 	async loadSettings() {
