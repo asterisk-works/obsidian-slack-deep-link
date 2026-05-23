@@ -1,6 +1,7 @@
 import { Plugin, Editor, MarkdownView, Notice } from 'obsidian';
 import { SlackDeepLinkSettings, DEFAULT_SETTINGS, SlackDeepLinkSettingTab, WorkspaceMapping } from './settings';
 import { isInsideMarkdownLinkUrl } from './utils/editor-context';
+import { parseMarkdownLink } from './utils/link-parser';
 
 function convertSlackUrl(url: string, workspaces: WorkspaceMapping[]): string | null {
 	const match = url.match(
@@ -73,8 +74,10 @@ export default class SlackDeepLinkPlugin extends Plugin {
 		if (!text) return;
 
 		const trimmed = text.trim();
+		const mdLink = parseMarkdownLink(trimmed);
+		const urlToProcess = mdLink ? mdLink.url : trimmed;
 
-		if (!trimmed.match(/https:\/\/[^/]+\.slack\.com\/archives\//)) return;
+		if (!urlToProcess.match(/https:\/\/[^/]+\.slack\.com\/archives\//)) return;
 
 		const view = this.app.workspace.getActiveViewOfType(MarkdownView);
 		if (!view) return;
@@ -89,7 +92,7 @@ export default class SlackDeepLinkPlugin extends Plugin {
 		const beforeCursor = editor.getLine(cursor.line).substring(0, cursor.ch);
 		const inLinkUrl = isInsideMarkdownLinkUrl(beforeCursor);
 
-		const converted = convertSlackUrl(trimmed, this.settings.workspaces);
+		const converted = convertSlackUrl(urlToProcess, this.settings.workspaces);
 		if (!converted) {
 			// マッピングが見つからない場合は通知を表示しそのままURLを貼り付け
 			const notice = new Notice('', 5000);
@@ -103,12 +106,15 @@ export default class SlackDeepLinkPlugin extends Plugin {
 				appWithSetting.setting.openTabById('slack-deep-link');
 				notice.hide();
 			});
-			editor.replaceSelection(trimmed);
+			editor.replaceSelection(inLinkUrl && mdLink ? mdLink.url : trimmed);
 			return;
 		}
 
 		if (inLinkUrl) {
 			editor.replaceSelection(converted);
+		} else if (mdLink) {
+			const linkText = selectedText || mdLink.linkText;
+			editor.replaceSelection(`${mdLink.prefix}[${linkText}](${converted})`);
 		} else {
 			const linkText = selectedText || 'slack app';
 			editor.replaceSelection(`[${linkText}](${converted})`);
