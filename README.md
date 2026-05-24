@@ -37,6 +37,28 @@ Copy a message link in Slack via **Copy link** and paste it into an Obsidian not
 
 If text is selected when you paste, the selected text is used as the link label instead of the default.
 
+### Pasting Markdown links containing Slack URLs
+
+If you copy a Markdown link from Obsidian (e.g. `[meeting notes](https://example.slack.com/archives/...)`) and paste it, the plugin preserves the link text and only rewrites the URL.
+
+| Shortcut | Result |
+|----------|--------|
+| `Cmd+V` / `Ctrl+V` | `[meeting notes](slack://...)` — text preserved, URL converted to deep link |
+| `Cmd+Shift+V` / `Ctrl+Shift+V` | `[meeting notes](https://...)` — text preserved, URL unchanged |
+
+Image links (`![alt text](slackUrl)`) are also handled — the `!` prefix and alt text are preserved.
+
+If text is selected when you paste, the selected text overrides the link label from the clipboard.
+
+### Pasting inside an existing Markdown link
+
+If your cursor is inside the `()` of a Markdown link (e.g. `[label](`↕`)`), only the URL is inserted — the plugin never nests one Markdown link inside another.
+
+| Shortcut | Inserted |
+|----------|----------|
+| `Cmd+V` / `Ctrl+V` | `slack://...` only |
+| `Cmd+Shift+V` / `Ctrl+Shift+V` | `https://...` only |
+
 ### Using with Auto Link Title
 
 If you have the [Auto Link Title](https://github.com/zolrath/obsidian-auto-link-title) plugin installed, `Cmd+Shift+V` / `Ctrl+Shift+V` may conflict. To resolve this, go to Settings > Hotkeys and clear the hotkey assigned to Auto Link Title's **Normal paste** command, then assign it to Slack Deep Link's **Paste Slack link as plain URL** command.
